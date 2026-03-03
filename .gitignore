@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+
+# Build folders
+dist/
+build/
+
+# Zip files
+*.zip
+backend/integrated_accident_system.db
