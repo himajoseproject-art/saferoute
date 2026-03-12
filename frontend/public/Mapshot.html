@@ -241,33 +241,6 @@
         .map-controls { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
         .map-btn { width: 48px; height: 48px; background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .map-btn:hover { background: #f8f9fa; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        /* sidebar handle for swiping/collapsing */
-        .sidebar-handle {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            width: 24px;
-            height: 60px;
-            background: rgba(0,0,0,0.05);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-top-left-radius: 8px;
-            border-bottom-left-radius: 8px;
-            cursor: pointer;
-            z-index: 1001;
-            font-size: 18px;
-            color: #5f6368;
-            transition: background 0.2s;
-        }
-        .sidebar-handle:hover { background: rgba(0,0,0,0.1); }
-        .sidebar.collapsed { transform: translateX(-100%); }
-        .sidebar.collapsed + .sidebar-handle { right: -24px; transform: rotate(180deg); }
-/* when handle is before sidebar adjust rotation too */
-.sidebar-handle.rotated { transform: rotate(180deg); } 
-        @media (max-width: 768px) {
-            .sidebar-handle { display: flex; }
-        }
         
         /* Traffic Density Panel */
         .traffic-panel { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; display: none; }
@@ -726,7 +699,7 @@
                     <div id="liveNotifications"></div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-                    <button id="startLiveNavBtn" class="route-button" style="margin-top: 0;">▶ Start Live Tracking</button>
+                    <button id="startLiveNavBtn" class="route-button" style="margin-top: 0;">▶️ Start Live Tracking</button>
                     <button id="stopLiveNavBtn" class="route-button" style="margin-top: 0; background: #6b7280; display: none;">⏹ Stop Tracking</button>
                 </div>
                 <h3>📊 Route Traffic Analysis</h3>
@@ -809,43 +782,6 @@
         const hamburgerBtn = document.getElementById('hamburgerBtn');
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
-        const sidebarHandle = document.getElementById('sidebarHandle');
-
-        // handle click toggles sidebar collapsed state and arrow orientation
-        if (sidebarHandle) {
-            sidebarHandle.addEventListener('click', () => {
-                const collapsing = !sidebar.classList.contains('collapsed');
-                sidebar.classList.toggle('collapsed');
-                // always hide overlay when sidebar is collapsed
-                if (collapsing) {
-                    sidebarOverlay.classList.remove('show');
-                }
-                // rotate arrow
-                sidebarHandle.classList.toggle('rotated', collapsing);
-            });
-        }
-
-        // swipe support: detect horizontal swipes on sidebar
-        let touchStartX = null;
-        sidebar.addEventListener('touchstart', function(e) {
-            if (e.touches.length === 1) {
-                touchStartX = e.touches[0].clientX;
-            }
-        });
-        sidebar.addEventListener('touchmove', function(e) {
-            if (!touchStartX) return;
-            const diff = e.touches[0].clientX - touchStartX;
-            // if swiping left more than 50px, collapse
-            if (diff < -50) {
-                sidebar.classList.add('collapsed');
-                sidebarOverlay.classList.remove('show');
-                if (sidebarHandle) sidebarHandle.classList.add('rotated');
-                touchStartX = null;
-            }
-        });
-        sidebar.addEventListener('touchend', function() {
-            touchStartX = null;
-        });
         
         function toggleSidebar() {
             sidebar.classList.toggle('show');
@@ -880,7 +816,7 @@
         // ==================== MAP INITIALIZATION ====================
         const map = L.map('map').setView([8.5241, 76.9366], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            attribution: '© OpenStreetMap', 
+            attribution: '©️ OpenStreetMap', 
             maxZoom: 19 
         }).addTo(map);
 
@@ -889,55 +825,10 @@
         let trafficOverlays = [];
 
         function createTrafficVisualization(routeCoords) {
-            // clear previous visualization
             if (trafficVisualizationLayer) {
-                try { map.removeLayer(trafficVisualizationLayer); } catch(e){}
+                map.removeLayer(trafficVisualizationLayer);
                 trafficVisualizationLayer = null;
             }
-
-            if (!routeCoords || routeCoords.length === 0) return;
-
-            // convert to Leaflet lat/lng pairs
-            const coords = routeCoords.map(c => [c[1], c[0]]);
-
-            const segments = [];
-
-            // determine density for each small segment based on proximity to hotspots/accidents
-            for (let i = 0; i < coords.length - 1; i++) {
-                const a = coords[i];
-                const b = coords[i+1];
-                const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-
-                // find nearest hotspot distance (km)
-                let nearestHotspotDist = Infinity;
-                accidentHotspots.forEach(h => {
-                    const d = distanceBetweenPoints(mid[0], mid[1], h.lat, h.lng);
-                    nearestHotspotDist = Math.min(nearestHotspotDist, d);
-                });
-
-                // find nearest reported accident distance (km)
-                let nearestAccidentDist = Infinity;
-                reportedAccidents.forEach(aAcc => {
-                    const d = distanceBetweenPoints(mid[0], mid[1], aAcc.latitude, aAcc.longitude);
-                    nearestAccidentDist = Math.min(nearestAccidentDist, d);
-                });
-
-                // heuristic: heavy if accident very close or hotspot high severity nearby
-                let density = 'light';
-                if (nearestAccidentDist < 0.15 || nearestHotspotDist < 0.2) {
-                    density = 'heavy';
-                } else if (nearestAccidentDist < 0.5 || nearestHotspotDist < 0.6) {
-                    density = 'moderate';
-                }
-
-                const color = density === 'heavy' ? '#ef4444' : density === 'moderate' ? '#f59e0b' : '#10b981';
-
-                const seg = L.polyline([a, b], { color, weight: 8, opacity: 0.85 }).bindPopup(`Traffic: ${density.charAt(0).toUpperCase() + density.slice(1)}`);
-                segments.push(seg);
-            }
-
-            trafficVisualizationLayer = L.layerGroup(segments);
-            if (trafficLayerEnabled) trafficVisualizationLayer.addTo(map);
         }
 
         function calculateTrafficMetrics(route) {
@@ -1027,16 +918,7 @@
             if (trafficLayerEnabled) {
                 this.style.background = '#ef4444';
                 this.style.color = 'white';
-                // if a route exists, create a visualization along it and update panel
-                if (currentRoute && currentRoute.geometry && currentRoute.geometry.coordinates) {
-                    createTrafficVisualization(currentRoute.geometry.coordinates);
-                    const metrics = calculateTrafficMetrics(currentRoute);
-                    updateTrafficPanel(metrics);
-                    // switch to navigate tab and show panel
-                    const navigateTab = document.querySelector('[data-tab="navigate"]');
-                    if (navigateTab) navigateTab.click();
-                    document.getElementById('trafficPanel').classList.add('show');
-                } else if (trafficVisualizationLayer) {
+                if (trafficVisualizationLayer) {
                     trafficVisualizationLayer.addTo(map);
                 }
                 document.getElementById('trafficToggleBtn').textContent = 'Hide from Map';
@@ -1114,7 +996,8 @@
                 async function(position) {
                     const { latitude, longitude } = position.coords;
                     
-                    storedStartCoords = [latitude, longitude];const locationName = await reverseGeocode(latitude, longitude);
+                    storedStartCoords = [latitude, longitude];
+                    const locationName = await reverseGeocode(latitude, longitude);
                     
                     if (locationName) {
                         input.value = locationName + ' (Current Location)';
@@ -1356,6 +1239,7 @@
                 }
             });
         }
+
         function startLiveTracking() {
             if (!navigator.geolocation) {
                 alert('Geolocation not supported on this device');
@@ -2295,9 +2179,6 @@
             
             btn.disabled = false;
             btn.textContent = 'Get Directions';
-            // after route is displayed collapse sidebar so map is visible
-            if (sidebar) sidebar.classList.add('collapsed');
-            if (sidebarHandle) sidebarHandle.classList.add('rotated');
         });
 
         // Tab switching

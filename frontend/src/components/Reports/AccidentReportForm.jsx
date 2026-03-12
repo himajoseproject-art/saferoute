@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { X, MapPin, AlertTriangle, Bell, Send, Upload, FileType, Trash2, Image, Video } from 'lucide-react'
 import { useApp } from '../../contexts/AppContext'
-import { supabase } from "../../supabaseClient"
 function AccidentReportForm({ location, onClose, onSubmit }) {
   const { addNotification } = useApp()
   
